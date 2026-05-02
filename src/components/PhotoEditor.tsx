@@ -6,7 +6,7 @@
 import { useState, useRef, useEffect, SyntheticEvent } from 'react';
 import ReactCrop, { Crop, PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { X, RotateCcw, RotateCw, Check, Sun, Contrast, Droplets, Sparkles, Loader2 } from 'lucide-react';
+import { X, RotateCcw, RotateCw, Check, Sun, Contrast, Droplets, Sparkles, Loader2, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Photo } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -26,6 +26,7 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [saturation, setSaturation] = useState(100);
+  const [scale, setScale] = useState(1);
   const [aspect, setAspect] = useState<number | undefined>(16 / 9);
   const [selectedFilter, setSelectedFilter] = useState('none');
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -163,57 +164,56 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
     const image = imgRef.current;
     if (!image || !crop) return;
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-
-    // Use completedCrop if available, otherwise use crop
     const targetCrop = completedCrop || (crop as PixelCrop);
 
-    canvas.width = targetCrop.width * scaleX;
-    canvas.height = targetCrop.height * scaleY;
+    // 1. Create a full-size transformation canvas
+    const transformCanvas = document.createElement('canvas');
+    const transformCtx = transformCanvas.getContext('2d');
+    if (!transformCtx) return;
 
-    ctx.filter = filterString;
-    
-    // Support rotation in crop is complex, so we'll apply filters first
-    ctx.save();
-    
-    // We create an offscreen canvas to handle the filtered full image first
-    const fullCanvas = document.createElement('canvas');
-    const fullCtx = fullCanvas.getContext('2d');
-    if (!fullCtx) return;
+    // Normalize rotation
+    const normRotation = (rotation % 360 + 360) % 360;
+    const isSideways = normRotation === 90 || normRotation === 270;
 
-    if (rotation % 180 === 0) {
-      fullCanvas.width = image.naturalWidth;
-      fullCanvas.height = image.naturalHeight;
-    } else {
-      fullCanvas.width = image.naturalHeight;
-      fullCanvas.height = image.naturalWidth;
-    }
+    // Physical dimensions of the rotated image
+    const tWidth = isSideways ? image.naturalHeight : image.naturalWidth;
+    const tHeight = isSideways ? image.naturalWidth : image.naturalHeight;
 
-    fullCtx.filter = filterString;
-    fullCtx.translate(fullCanvas.width / 2, fullCanvas.height / 2);
-    fullCtx.rotate((rotation * Math.PI) / 180);
-    fullCtx.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
+    transformCanvas.width = tWidth;
+    transformCanvas.height = tHeight;
 
-    // Now draw the cropped portion from the fullCanvas to our result canvas
-    // Note: We're simplifying here to match what's visible in the UI container
-    ctx.drawImage(
-      fullCanvas,
+    // Apply global filters and rotation
+    transformCtx.filter = filterString;
+    transformCtx.translate(tWidth / 2, tHeight / 2);
+    transformCtx.rotate((normRotation * Math.PI) / 180);
+    transformCtx.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
+
+    // 2. Map visual crop to physical pixels
+    // We use the image's current rendered dimensions to calculate scale
+    const scaleX = tWidth / (isSideways ? image.height : image.width);
+    const scaleY = tHeight / (isSideways ? image.width : image.height);
+
+    // 3. Create final cropped canvas
+    const finalCanvas = document.createElement('canvas');
+    const finalCtx = finalCanvas.getContext('2d');
+    if (!finalCtx) return;
+
+    finalCanvas.width = targetCrop.width * scaleX;
+    finalCanvas.height = targetCrop.height * scaleY;
+
+    finalCtx.drawImage(
+      transformCanvas,
       targetCrop.x * scaleX,
       targetCrop.y * scaleY,
       targetCrop.width * scaleX,
       targetCrop.height * scaleY,
       0,
       0,
-      targetCrop.width * scaleX,
-      targetCrop.height * scaleY
+      finalCanvas.width,
+      finalCanvas.height
     );
 
-    const finalUrl = canvas.toDataURL('image/jpeg', 0.9);
+    const finalUrl = finalCanvas.toDataURL('image/jpeg', 0.9);
     onSave(finalUrl);
   };
 
@@ -231,8 +231,11 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
         </button>
       </header>
 
-      <main className="flex-1 overflow-hidden flex items-center justify-center p-8 bg-black/50">
-        <div className="relative max-w-full max-h-full">
+      <main className={`flex-1 overflow-${scale > 1 ? 'auto' : 'hidden'} flex items-center justify-center p-8 bg-black/50 relative`}>
+        <div 
+          className="relative transition-transform duration-200 ease-out"
+          style={{ transform: `scale(${scale})` }}
+        >
           <ReactCrop
             crop={crop}
             onChange={(c) => setCrop(c)}
@@ -247,8 +250,10 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
               style={{
                 transform: `rotate(${rotation}deg)`,
                 filter: filterString,
-                maxWidth: '100%',
-                maxHeight: '100%',
+                maxWidth: '100vw',
+                maxHeight: '100vh',
+                width: 'auto',
+                height: 'auto',
                 transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.1s ease'
               }}
             />
@@ -338,7 +343,26 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setScale(s => Math.max(0.5, s - 0.1))}
+              className="w-8 h-8 flex items-center justify-center rounded-lg glass text-white/60 hover:text-white"
+            >
+              <ZoomOut size={16} />
+            </button>
+            <input 
+              type="range" min="0.5" max="3" step="0.1" value={scale} 
+              onChange={(e) => setScale(Number(e.target.value))}
+              className="flex-1 accent-ios-blue h-1 bg-white/20 rounded-full appearance-none cursor-pointer"
+            />
+            <button 
+              onClick={() => setScale(s => Math.min(3, s + 0.1))}
+              className="w-8 h-8 flex items-center justify-center rounded-lg glass text-white/60 hover:text-white"
+            >
+              <ZoomIn size={16} />
+            </button>
+          </div>
           <div className="flex items-center gap-4">
             <div className="w-8 h-8 flex items-center justify-center rounded-lg glass text-white/60">
               <Sun size={16} />
