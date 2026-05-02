@@ -12,9 +12,21 @@ interface HeaderProps {
   selectedCategory: string;
   onCategoryChange: (id: string) => void;
   onUpload: (photo: Photo) => void;
+  isSelectionMode: boolean;
+  onToggleSelectionMode: () => void;
+  selectedCount: number;
+  onDeleteSelected: () => void;
 }
 
-export default function Header({ selectedCategory, onCategoryChange, onUpload }: HeaderProps) {
+export default function Header({ 
+  selectedCategory, 
+  onCategoryChange, 
+  onUpload, 
+  isSelectionMode, 
+  onToggleSelectionMode,
+  selectedCount,
+  onDeleteSelected 
+}: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -52,6 +64,24 @@ export default function Header({ selectedCategory, onCategoryChange, onUpload }:
           All Photos
         </motion.h1>
         <div className="flex gap-4">
+          {isSelectionMode && selectedCount > 0 && (
+            <button 
+              onClick={onDeleteSelected}
+              className="px-4 flex items-center justify-center rounded-full bg-red-500 text-white font-bold text-sm transition-all hover:bg-red-600 active:scale-95"
+            >
+              Delete
+            </button>
+          )}
+          <button 
+            onClick={onToggleSelectionMode}
+            className={`px-4 flex items-center justify-center rounded-full font-bold text-sm transition-all ${
+              isSelectionMode 
+                ? 'bg-ios-blue text-white' 
+                : 'glass text-ios-blue hover:bg-white/10'
+            }`}
+          >
+            {isSelectionMode ? 'Cancel' : 'Select'}
+          </button>
           <input
             type="file"
             ref={fileInputRef}

@@ -4,8 +4,8 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MapPin, Calendar, Info, Edit3 } from 'lucide-react';
-import { Photo } from '../types';
+import { X, MapPin, Calendar, Info, Edit3, Grid } from 'lucide-react';
+import { Photo, Album } from '../types';
 import { useState } from 'react';
 import PhotoEditor from './PhotoEditor';
 
@@ -13,9 +13,10 @@ interface PhotoDetailProps {
   photo: Photo | null;
   onClose: () => void;
   onUpdate: (photo: Photo) => void;
+  albums: Album[];
 }
 
-export default function PhotoDetail({ photo, onClose, onUpdate }: PhotoDetailProps) {
+export default function PhotoDetail({ photo, onClose, onUpdate, albums }: PhotoDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [editedTitle, setEditedTitle] = useState(photo?.title || '');
@@ -151,6 +152,26 @@ export default function PhotoDetail({ photo, onClose, onUpdate }: PhotoDetailPro
                   </p>
                 )}
               </div>
+
+              {photo.albumIds && photo.albumIds.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-ios-blue font-semibold">
+                    <Grid size={18} />
+                    <span className="uppercase tracking-widest text-[10px] font-black">Albums</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {photo.albumIds.map(id => {
+                      const album = albums.find(a => a.id === id);
+                      if (!album) return null;
+                      return (
+                        <div key={id} className="px-3 py-1 rounded-full glass text-[10px] font-bold text-white/80">
+                          {album.title}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               
               <div className="pt-4 flex flex-wrap gap-4">
                 {isEditingMetadata ? (

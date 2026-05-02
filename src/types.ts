@@ -11,6 +11,15 @@ export interface Photo {
   date: string;
   categoryId: string;
   description: string;
+  albumIds?: string[];
+}
+
+export interface Album {
+  id: string;
+  title: string;
+  description?: string;
+  coverId?: string; // photo id for cover
+  dateCreated: string;
 }
 
 export interface Category {
