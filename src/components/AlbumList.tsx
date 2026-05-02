@@ -22,6 +22,7 @@ interface AlbumListProps {
 
 export default function AlbumList({ albums, photos, onSelectAlbum, onCreateAlbum, onDeleteAlbum, onEditAlbum, onUpdateAlbumCover }: AlbumListProps) {
   const [selectingCoverFor, setSelectingCoverFor] = useState<Album | null>(null);
+  const [confirmingDeleteFor, setConfirmingDeleteFor] = useState<Album | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('date');
 
   const albumPhotos = (albumId: string) => photos.filter(p => p.albumIds?.includes(albumId));
@@ -126,9 +127,7 @@ export default function AlbumList({ albums, photos, onSelectAlbum, onCreateAlbum
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm(`Delete album "${album.title}"?`)) {
-                        onDeleteAlbum(album.id);
-                      }
+                      setConfirmingDeleteFor(album);
                     }}
                     className="p-2 rounded-full glass text-white/40 hover:text-red-500 hover:bg-red-500/10 transition-all"
                   >
@@ -169,6 +168,49 @@ export default function AlbumList({ albums, photos, onSelectAlbum, onCreateAlbum
       </div>
 
       <AnimatePresence>
+        {confirmingDeleteFor && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+            onClick={() => setConfirmingDeleteFor(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="w-full max-w-sm glass-dark rounded-[32px] border border-white/10 p-8 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mx-auto mb-6">
+                <Trash2 size={32} />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Delete Album?</h2>
+              <p className="text-white/40 text-sm mb-8">
+                Are you sure you want to delete <span className="text-white font-medium">"{confirmingDeleteFor.title}"</span>? This action cannot be undone.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    onDeleteAlbum(confirmingDeleteFor.id);
+                    setConfirmingDeleteFor(null);
+                  }}
+                  className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors active:scale-95"
+                >
+                  Delete Album
+                </button>
+                <button
+                  onClick={() => setConfirmingDeleteFor(null)}
+                  className="w-full py-4 rounded-2xl glass text-white font-bold hover:bg-white/5 transition-colors active:scale-95"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         {selectingCoverFor && (
           <motion.div
             initial={{ opacity: 0 }}
