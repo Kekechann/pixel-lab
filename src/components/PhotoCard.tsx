@@ -4,7 +4,7 @@
  */
 
 import { motion } from 'motion/react';
-import { Check } from 'lucide-react';
+import { Check, Play } from 'lucide-react';
 import { Photo } from '../types';
 
 interface PhotoCardProps {
@@ -15,6 +15,8 @@ interface PhotoCardProps {
 }
 
 export default function PhotoCard({ photo, onClick, isSelected = false, isSelectionMode = false }: PhotoCardProps) {
+  const isVideo = photo.mediaType === 'video';
+
   return (
     <motion.div
       layoutId={`card-${photo.id}`}
@@ -25,14 +27,40 @@ export default function PhotoCard({ photo, onClick, isSelected = false, isSelect
         isSelected ? 'border-ios-blue ring-4 ring-ios-blue/20 scale-[0.98]' : 'border-white/5'
       }`}
     >
-      <motion.img
-        layoutId={`img-${photo.id}`}
-        src={photo.url}
-        alt={photo.title}
-        className={`h-full w-full object-cover transition-transform duration-700 ${
-          isSelected ? 'scale-105 opacity-80' : 'group-hover:scale-110'
-        }`}
-      />
+      {isVideo ? (
+        <>
+          <video
+            src={photo.url}
+            className={`h-full w-full object-cover transition-transform duration-700 ${
+              isSelected ? 'scale-105 opacity-80' : 'group-hover:scale-110'
+            }`}
+            muted
+            playsInline
+            onMouseOver={(e) => (e.target as HTMLVideoElement).play()}
+            onMouseOut={(e) => {
+              const v = e.target as HTMLVideoElement;
+              v.pause();
+              v.currentTime = 0;
+            }}
+          />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-white shadow-lg pointer-events-none group-hover:scale-110 transition-transform">
+            <Play size={24} fill="currentColor" />
+          </div>
+          <div className="absolute top-3 left-3 z-10 px-2 py-0.5 rounded-md bg-black/40 backdrop-blur-sm border border-white/10 text-[8px] font-black text-white/80 uppercase tracking-tighter">
+            AI Video
+          </div>
+        </>
+      ) : (
+        <motion.img
+          layoutId={`img-${photo.id}`}
+          src={photo.url}
+          alt={photo.title}
+          className={`h-full w-full object-cover transition-transform duration-700 ${
+            isSelected ? 'scale-105 opacity-80' : 'group-hover:scale-110'
+          }`}
+          referrerPolicy="no-referrer"
+        />
+      )}
       
       {/* Selection Overlay */}
       {isSelectionMode && (

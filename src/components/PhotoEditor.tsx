@@ -30,6 +30,8 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
   const [aspect, setAspect] = useState<number | undefined>(16 / 9);
   const [selectedFilter, setSelectedFilter] = useState('none');
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isUpscaling, setIsUpscaling] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState(photo.url);
 
   const presets = [
     { name: '1:1', value: 1 },
@@ -91,11 +93,11 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
   const handleAutoEnhance = async () => {
     setIsEnhancing(true);
     try {
-      let imageData = photo.url;
+      let imageData = currentImageUrl;
       
       if (!imageData.startsWith('data:')) {
         try {
-          const response = await fetch(photo.url);
+          const response = await fetch(currentImageUrl);
           const blob = await response.blob();
           imageData = await new Promise((resolve) => {
             const reader = new FileReader();
@@ -154,6 +156,72 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
       console.error('Auto-enhance failed:', error);
     } finally {
       setIsEnhancing(false);
+    }
+  };
+
+  const handleUpscale = async () => {
+    if (isUpscaling) return;
+    setIsUpscaling(true);
+    
+    try {
+      let imageData = currentImageUrl;
+      
+      if (!imageData.startsWith('data:')) {
+        const response = await fetch(currentImageUrl);
+        const blob = await response.blob();
+        imageData = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      const base64Data = imageData.split(',')[1];
+      const mimeType = imageData.split(';')[0].split(':')[1];
+
+      const result = await ai.models.generateContent({
+        model: "gemini-3.1-flash-image-preview",
+        contents: [
+          {
+            parts: [
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType: mimeType
+                }
+              },
+              {
+                text: "Enhance and upscale this image to high resolution (4K). Remove noise, sharpen details, and improve overall clarity while preserving the original content."
+              }
+            ]
+          }
+        ],
+        config: {
+          imageConfig: {
+            imageSize: "4K"
+          }
+        }
+      });
+
+      if (result.candidates?.[0]?.content?.parts) {
+        for (const part of result.candidates[0].content.parts) {
+          if (part.inlineData) {
+            const newBase64Data = part.inlineData.data;
+            const newImageUrl = `data:image/png;base64,${newBase64Data}`;
+            setCurrentImageUrl(newImageUrl);
+            // Reset adjustments after upscaling as the new image is already enhanced
+            setBrightness(100);
+            setContrast(100);
+            setSaturation(100);
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Upscale failed:', error);
+      alert('Failed to upscale image. Please try again.');
+    } finally {
+      setIsUpscaling(false);
     }
   };
 
@@ -244,7 +312,7 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
           >
             <img
               ref={imgRef}
-              src={photo.url}
+              src={currentImageUrl}
               alt="Edit target"
               onLoad={onImageLoad}
               style={{
@@ -290,7 +358,7 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
                 selectedFilter === f.id ? 'border-ios-blue scale-105' : 'border-white/10 opacity-70 group-hover:opacity-100'
               }`}>
                 <img 
-                  src={photo.url} 
+                  src={currentImageUrl} 
                   className="w-full h-full object-cover" 
                   style={{ filter: f.value }}
                 />
@@ -329,18 +397,32 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
             </button>
           </div>
 
-          <button 
-            onClick={handleAutoEnhance}
-            disabled={isEnhancing}
-            className={`px-6 py-2.5 rounded-full flex items-center gap-2 font-bold text-sm transition-all ${
-              isEnhancing 
-                ? 'bg-white/10 text-white/40 cursor-not-allowed' 
-                : 'bg-ios-blue text-white shadow-lg shadow-blue-500/20 active:scale-95 hover:brightness-110'
-            }`}
-          >
-            {isEnhancing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-            <span>{isEnhancing ? 'Analyzing...' : 'Auto-Enhance'}</span>
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleUpscale}
+              disabled={isUpscaling}
+              className={`px-6 py-2.5 rounded-full flex items-center gap-2 font-bold text-sm transition-all ${
+                isUpscaling 
+                  ? 'bg-white/10 text-white/40 cursor-not-allowed' 
+                  : 'bg-purple-600 text-white shadow-lg shadow-purple-500/20 active:scale-95 hover:brightness-110'
+              }`}
+            >
+              {isUpscaling ? <Loader2 size={18} className="animate-spin" /> : <Maximize size={18} />}
+              <span>{isUpscaling ? 'Upscaling...' : 'AI Upscale (4K)'}</span>
+            </button>
+            <button 
+              onClick={handleAutoEnhance}
+              disabled={isEnhancing}
+              className={`px-6 py-2.5 rounded-full flex items-center gap-2 font-bold text-sm transition-all ${
+                isEnhancing 
+                  ? 'bg-white/10 text-white/40 cursor-not-allowed' 
+                  : 'bg-ios-blue text-white shadow-lg shadow-blue-500/20 active:scale-95 hover:brightness-110'
+              }`}
+            >
+              {isEnhancing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              <span>{isEnhancing ? 'Analyzing...' : 'Auto-Enhance'}</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

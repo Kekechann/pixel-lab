@@ -4,24 +4,107 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MapPin, Calendar, Info, Edit3, Grid } from 'lucide-react';
+import { X, MapPin, Calendar, Info, Edit3, Grid, Sparkles, Loader2, Tag, Image as ImageIcon } from 'lucide-react';
 import { Photo, Album } from '../types';
 import { useState } from 'react';
 import PhotoEditor from './PhotoEditor';
+import { GoogleGenAI, Type } from "@google/genai";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 interface PhotoDetailProps {
   photo: Photo | null;
   onClose: () => void;
   onUpdate: (photo: Photo) => void;
+  onSetBackground: (url: string) => void;
   albums: Album[];
 }
 
-export default function PhotoDetail({ photo, onClose, onUpdate, albums }: PhotoDetailProps) {
+export default function PhotoDetail({ photo, onClose, onUpdate, onSetBackground, albums }: PhotoDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [editedTitle, setEditedTitle] = useState(photo?.title || '');
   const [editedLocation, setEditedLocation] = useState(photo?.location || '');
   const [editedDescription, setEditedDescription] = useState(photo?.description || '');
+
+  const isVideo = photo?.mediaType === 'video';
+
+  const handleGenerateTags = async () => {
+    if (!photo || isGeneratingTags || isVideo) return;
+    setIsGeneratingTags(true);
+    // ...
+
+    try {
+      let imageData = photo.url;
+      
+      // If it's not a data URL, we need to fetch it (handling CORS issues if any)
+      if (!imageData.startsWith('data:')) {
+        try {
+          const response = await fetch(photo.url);
+          const blob = await response.blob();
+          imageData = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.error('CORS prevents tag analysis.', e);
+          alert('Cannot analyze this remote image due to security restrictions.');
+          setIsGeneratingTags(false);
+          return;
+        }
+      }
+
+      const base64Data = imageData.split(',')[1];
+      const mimeType = imageData.split(';')[0].split(':')[1];
+
+      const result = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [
+          {
+            parts: [
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType: mimeType
+                }
+              },
+              {
+                text: "Analyze this image and suggest 5-8 relevant tags for categorization. Return ONLY a JSON object with a key 'tags' which is an array of strings."
+              }
+            ]
+          }
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              tags: { 
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              }
+            },
+            required: ["tags"]
+          }
+        }
+      });
+
+      const parsed = JSON.parse(result.text || '{}');
+      const newTags = parsed.tags || [];
+      
+      onUpdate({
+        ...photo,
+        tags: Array.from(new Set([...(photo.tags || []), ...newTags]))
+      });
+    } catch (error) {
+      console.error('Tag generation failed:', error);
+      alert('Failed to generate tags. Please try again.');
+    } finally {
+      setIsGeneratingTags(false);
+    }
+  };
 
   const handleSaveEdit = (newUrl: string) => {
     if (photo) {
@@ -68,12 +151,23 @@ export default function PhotoDetail({ photo, onClose, onUpdate, albums }: PhotoD
             className="relative w-full max-w-2xl glass rounded-[40px] overflow-hidden photo-shadow flex flex-col border border-white/20"
           >
             <div className="relative aspect-[4/5] sm:aspect-video w-full overflow-hidden">
-              <motion.img
-                layoutId={`img-${photo.id}`}
-                src={photo.url}
-                alt={photo.title}
-                className="w-full h-full object-cover"
-              />
+              {photo.mediaType === 'video' ? (
+                <video
+                  src={photo.url}
+                  className="w-full h-full object-contain bg-black"
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                />
+              ) : (
+                <motion.img
+                  layoutId={`img-${photo.id}`}
+                  src={photo.url}
+                  alt={photo.title}
+                  className="w-full h-full object-cover"
+                />
+              )}
               <button
                 onClick={onClose}
                 className="absolute top-6 right-6 p-2 rounded-full glass hover:bg-white/20 transition-colors text-white"
@@ -127,11 +221,51 @@ export default function PhotoDetail({ photo, onClose, onUpdate, albums }: PhotoD
                         <Calendar size={16} />
                         <span className="text-sm font-medium">{photo.date}</span>
                       </div>
+                      {isVideo && (
+                        <div className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-widest border border-purple-500/20">
+                          AI Video
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
               
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-ios-blue font-semibold">
+                    <Tag size={18} />
+                    <span className="uppercase tracking-widest text-[10px] font-black">{isVideo ? 'Video Tags' : 'AI Tags'}</span>
+                  </div>
+                  {!isVideo && (
+                    <button 
+                      onClick={handleGenerateTags}
+                      disabled={isGeneratingTags}
+                      className="p-1 glass rounded-lg text-ios-blue hover:bg-ios-blue/10 transition-colors disabled:opacity-50"
+                    >
+                      {isGeneratingTags ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    </button>
+                  )}
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {photo.tags && photo.tags.length > 0 ? (
+                    photo.tags.map((tag, idx) => (
+                      <span 
+                        key={idx} 
+                        className="px-3 py-1 rounded-full bg-ios-blue/10 border border-ios-blue/20 text-ios-blue text-[10px] font-bold"
+                      >
+                        #{tag}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-white/20 text-[10px] font-medium italic">
+                      {isVideo ? 'No tags yet.' : 'No tags yet. Tap the sparkles to generate.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-ios-blue font-semibold">
@@ -196,12 +330,21 @@ export default function PhotoDetail({ photo, onClose, onUpdate, albums }: PhotoD
                   </>
                 ) : (
                   <>
+                    {!isVideo && (
+                      <button 
+                        onClick={() => setIsEditing(true)}
+                        className="px-6 py-4 rounded-2xl glass text-white font-bold tracking-wide hover:bg-white/10 transition-all active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Edit3 size={20} />
+                        <span className="hidden sm:inline">Edit Photo</span>
+                      </button>
+                    )}
                     <button 
-                      onClick={() => setIsEditing(true)}
+                      onClick={() => photo && onSetBackground(photo.url)}
                       className="px-6 py-4 rounded-2xl glass text-white font-bold tracking-wide hover:bg-white/10 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
-                      <Edit3 size={20} />
-                      <span className="hidden sm:inline">Edit Photo</span>
+                      <ImageIcon size={20} />
+                      <span className="hidden sm:inline">Background</span>
                     </button>
                     <button 
                       onClick={() => setIsEditingMetadata(true)}

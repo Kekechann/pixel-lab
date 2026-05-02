@@ -4,7 +4,7 @@
  */
 
 import { motion } from 'motion/react';
-import { Plus, Folder, Trash2 } from 'lucide-react';
+import { Plus, Folder, Trash2, Edit2 } from 'lucide-react';
 import { Album, Photo } from '../types';
 
 interface AlbumListProps {
@@ -13,9 +13,10 @@ interface AlbumListProps {
   onSelectAlbum: (id: string) => void;
   onCreateAlbum: () => void;
   onDeleteAlbum: (id: string) => void;
+  onEditAlbum: (album: Album) => void;
 }
 
-export default function AlbumList({ albums, photos, onSelectAlbum, onCreateAlbum, onDeleteAlbum }: AlbumListProps) {
+export default function AlbumList({ albums, photos, onSelectAlbum, onCreateAlbum, onDeleteAlbum, onEditAlbum }: AlbumListProps) {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -54,24 +55,39 @@ export default function AlbumList({ albums, photos, onSelectAlbum, onCreateAlbum
                     <Folder size={40} />
                   </div>
                 )}
-                <div className="absolute top-2 right-2 px-2 py-1 rounded-md glass text-[10px] font-bold text-white">
-                  {albumPhotos.length}
+                <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditAlbum(album);
+                    }}
+                    className="p-2 rounded-full glass text-white/40 hover:text-ios-blue hover:bg-ios-blue/10 transition-all"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Delete album "${album.title}"?`)) {
+                        onDeleteAlbum(album.id);
+                      }
+                    }}
+                    className="p-2 rounded-full glass text-white/40 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`Delete album "${album.title}"?`)) {
-                      onDeleteAlbum(album.id);
-                    }
-                  }}
-                  className="absolute bottom-2 right-2 p-2 rounded-full glass text-white/40 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-                >
-                  <Trash2 size={14} />
-                </button>
               </div>
               <div>
                 <h3 className="text-white font-semibold text-sm truncate">{album.title}</h3>
-                <p className="text-white/40 text-xs">{album.dateCreated}</p>
+                {album.description && (
+                  <p className="text-white/40 text-[10px] truncate mb-1">{album.description}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <p className="text-white/40 text-[10px]">{albumPhotos.length} Photos</p>
+                  <span className="text-white/20 text-[10px]">•</span>
+                  <p className="text-white/40 text-[10px]">{album.dateCreated}</p>
+                </div>
               </div>
             </motion.div>
           );

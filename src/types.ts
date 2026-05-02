@@ -11,6 +11,8 @@ export interface Photo {
   date: string;
   categoryId: string;
   description: string;
+  mediaType?: 'image' | 'video';
+  tags?: string[];
   albumIds?: string[];
 }
 
@@ -28,11 +30,12 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  { id: 'all', name: 'All Photos' },
+  { id: 'all', name: 'All Media' },
   { id: 'nature', name: 'Nature' },
   { id: 'architecture', name: 'Architecture' },
   { id: 'urban', name: 'Urban' },
   { id: 'minimal', name: 'Minimal' },
+  { id: 'video', name: 'Videos' },
 ];
 
 export const PHOTOS: Photo[] = [
@@ -44,6 +47,7 @@ export const PHOTOS: Photo[] = [
     date: 'Oct 12, 2023',
     categoryId: 'nature',
     description: 'The first light hitting the peaks of the Bernese Oberland.',
+    tags: ['mountains', 'sunrise', 'snow', 'swiss'],
   },
   {
     id: '2',
@@ -71,6 +75,7 @@ export const PHOTOS: Photo[] = [
     date: 'Jan 15, 2024',
     categoryId: 'urban',
     description: 'The endless energy of the worlds busiest intersection.',
+    tags: ['city', 'neon', 'night', 'japan', 'street'],
   },
   {
     id: '5',

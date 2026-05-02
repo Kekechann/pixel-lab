@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, Edit3, Trash2, FolderPlus, Grid, Image as ImageIcon, Library, X } from 'lucide-react';
+import { Check, Edit3, Trash2, FolderPlus, Grid, Image as ImageIcon, Library, X, Sparkles, Search, Video } from 'lucide-react';
 import { PHOTOS as INITIAL_PHOTOS, Photo, Album } from './types';
 import Header from './components/Header';
 import PhotoCard from './components/PhotoCard';
@@ -13,31 +13,75 @@ import PhotoDetail from './components/PhotoDetail';
 import BulkPhotoEditor from './components/BulkPhotoEditor';
 import AlbumList from './components/AlbumList';
 import AddToAlbumModal from './components/AddToAlbumModal';
+import CreateAlbumModal from './components/CreateAlbumModal';
+
+import AIImageGenerator from './components/AIImageGenerator';
+import AIVideoGenerator from './components/AIVideoGenerator';
 
 export default function App() {
   const [photos, setPhotos] = useState<Photo[]>(INITIAL_PHOTOS);
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [currentTab, setCurrentTab] = useState<'Gallery' | 'Albums'>('Gallery');
+  const [currentTab, setCurrentTab] = useState<'Gallery' | 'Albums' | 'AI Creator' | 'Video AI'>('Gallery');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   
   // Selection state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [backgroundPhotoUrl, setBackgroundPhotoUrl] = useState<string | null>(null);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
   const [isBulkEditing, setIsBulkEditing] = useState(false);
   const [isAddToAlbumOpen, setIsAddToAlbumOpen] = useState(false);
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [isCreateAlbumOpen, setIsCreateAlbumOpen] = useState(false);
+  const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
+
+  const currentAlbum = useMemo(() => 
+    albums.find(a => a.id === selectedAlbumId),
+    [albums, selectedAlbumId]
+  );
+
+  const filteredAlbums = useMemo(() => {
+    if (!searchQuery.trim()) return albums;
+    const query = searchQuery.toLowerCase();
+    return albums.filter(a => 
+      a.title.toLowerCase().includes(query) || 
+      a.description?.toLowerCase().includes(query)
+    );
+  }, [albums, searchQuery]);
+
+  const headerTitle = useMemo(() => {
+    if (selectedAlbumId) return currentAlbum?.title;
+    if (currentTab === 'AI Creator') return 'AI Creator';
+    if (currentTab === 'Video AI') return 'Veo Video AI';
+    if (currentTab === 'Albums') return 'Albums';
+    if (searchQuery) return 'Search Results';
+    return 'All Photos';
+  }, [currentTab, selectedAlbumId, currentAlbum, searchQuery]);
 
   const filteredPhotos = useMemo(() => {
     let result = photos;
+    
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(p => 
+        p.title.toLowerCase().includes(query) || 
+        p.description.toLowerCase().includes(query) || 
+        p.location.toLowerCase().includes(query) ||
+        p.tags?.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+
     if (currentTab === 'Albums' && selectedAlbumId) {
-      result = photos.filter(p => p.albumIds?.includes(selectedAlbumId));
+      result = result.filter(p => p.albumIds?.includes(selectedAlbumId));
     }
     if (selectedCategory !== 'all') {
       result = result.filter((p) => p.categoryId === selectedCategory);
     }
     return result;
-  }, [selectedCategory, photos, currentTab, selectedAlbumId]);
+  }, [selectedCategory, photos, currentTab, selectedAlbumId, searchQuery]);
 
   const handleAddPhoto = (newPhoto: Photo) => {
     setPhotos(prev => [newPhoto, ...prev]);
@@ -92,23 +136,18 @@ export default function App() {
     [photos, selectedPhotoIds]
   );
 
-  const currentAlbum = useMemo(() => 
-    albums.find(a => a.id === selectedAlbumId),
-    [albums, selectedAlbumId]
-  );
-
-  const handleCreateAlbum = (albumTitle: string) => {
+  const handleCreateAlbum = (albumTitle: string, albumDescription: string) => {
     const ids: string[] = Array.from(selectedPhotoIds);
     const albumId = Math.random().toString(36).substring(2, 9);
     const newAlbum: Album = {
       id: albumId,
       title: albumTitle,
+      description: albumDescription,
       dateCreated: new Date().toLocaleDateString(),
       coverId: ids.length > 0 ? ids[0] : undefined
     };
     setAlbums(prev => [...prev, newAlbum]);
     
-    // If photos are selected, add them to the new album
     if (ids.length > 0) {
       setPhotos(prev => prev.map(p => {
         if (ids.includes(p.id)) {
@@ -119,6 +158,12 @@ export default function App() {
       setIsSelectionMode(false);
       setSelectedPhotoIds(new Set());
     }
+    setIsCreateAlbumOpen(false);
+  };
+
+  const handleUpdateAlbum = (albumId: string, title: string, description: string) => {
+    setAlbums(prev => prev.map(a => a.id === albumId ? { ...a, title, description } : a));
+    setEditingAlbum(null);
   };
 
   const handleAddToAlbum = (albumId: string) => {
@@ -151,12 +196,59 @@ export default function App() {
   return (
     <div className="min-h-screen bg-ios-bg pb-20 relative overflow-hidden">
       {/* Background Mesh */}
-      <div className="fixed inset-0 mesh-bg opacity-40 -z-10" />
+      {/* Dynamic Background */}
+      <AnimatePresence>
+        {backgroundPhotoUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[-1] overflow-hidden"
+          >
+            <motion.div
+              animate={{ 
+                scale: [1, 1.15, 1.05],
+                x: [0, -20, 20],
+                y: [0, 10, -10]
+              }}
+              transition={{ 
+                duration: 40, 
+                repeat: Infinity, 
+                ease: "linear" 
+              }}
+              className="absolute inset-[-40px]"
+            >
+              <img 
+                src={backgroundPhotoUrl} 
+                className="w-full h-full object-cover blur-[80px] brightness-[0.35] saturate-[1.2]"
+                alt=""
+              />
+            </motion.div>
+            <div className="absolute inset-0 bg-black/40" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ 
+          opacity: backgroundPhotoUrl ? 0.2 : 0.4,
+          scale: backgroundPhotoUrl ? 1.1 : 1,
+          rotate: backgroundPhotoUrl ? 2 : 0
+        }}
+        transition={{ duration: 2, ease: "circOut" }}
+        className="fixed inset-0 mesh-bg -z-10 pointer-events-none" 
+      />
 
       <Header 
+        title={headerTitle}
         selectedCategory={selectedCategory} 
         onCategoryChange={setSelectedCategory} 
         onUpload={handleAddPhoto}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        isSearchVisible={isSearchVisible}
+        onSetSearchVisible={setIsSearchVisible}
         isSelectionMode={isSelectionMode}
         onToggleSelectionMode={() => {
           setIsSelectionMode(!isSelectionMode);
@@ -167,20 +259,22 @@ export default function App() {
       />
       
       <main className="px-6 py-4 relative">
-        {currentTab === 'Albums' && !selectedAlbumId ? (
+        {currentTab === 'AI Creator' ? (
+          <AIImageGenerator onSave={handleAddPhoto} />
+        ) : currentTab === 'Video AI' ? (
+          <AIVideoGenerator onSave={handleAddPhoto} />
+        ) : currentTab === 'Albums' && !selectedAlbumId ? (
           <AlbumList 
-            albums={albums} 
+            albums={filteredAlbums} 
             photos={photos} 
             onSelectAlbum={setSelectedAlbumId}
-            onCreateAlbum={() => {
-              const title = prompt('Enter album name:');
-              if (title) handleCreateAlbum(title);
-            }}
+            onCreateAlbum={() => setIsCreateAlbumOpen(true)}
             onDeleteAlbum={handleDeleteAlbum}
+            onEditAlbum={setEditingAlbum}
           />
         ) : (
           <>
-            {(isSelectionMode || selectedAlbumId) && (
+            {(isSelectionMode || selectedAlbumId || searchQuery) && (
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -195,17 +289,20 @@ export default function App() {
                       {selectedPhotoIds.size === filteredPhotos.length ? 'Deselect All' : 'Select All'}
                     </button>
                   )}
-                  {selectedAlbumId && (
+                  {(selectedAlbumId || searchQuery) && (
                     <button 
-                      onClick={() => setSelectedAlbumId(null)}
+                      onClick={() => {
+                        setSelectedAlbumId(null);
+                        setSearchQuery('');
+                      }}
                       className="text-ios-blue font-bold text-sm flex items-center gap-1"
                     >
                       <X size={14} />
-                      <span>Exit Album</span>
+                      <span>{searchQuery ? 'Clear Search' : 'Exit Album'}</span>
                     </button>
                   )}
                   <span className="text-white/60 text-sm font-medium">
-                    {isSelectionMode ? `${selectedPhotoIds.size} Selected` : currentAlbum?.title}
+                    {isSelectionMode ? `${selectedPhotoIds.size} Selected` : (searchQuery ? `${filteredPhotos.length} results` : currentAlbum?.title)}
                   </span>
                 </div>
                 
@@ -226,10 +323,7 @@ export default function App() {
                       </button>
                       <button 
                         disabled={selectedPhotoIds.size === 0}
-                        onClick={() => {
-                          const title = prompt('Enter new album name:');
-                          if (title) handleCreateAlbum(title);
-                        }}
+                        onClick={() => setIsCreateAlbumOpen(true)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                           selectedPhotoIds.size > 0 
                             ? 'bg-ios-blue/20 text-ios-blue border border-ios-blue/20' 
@@ -297,9 +391,35 @@ export default function App() {
                 ))}
               </AnimatePresence>
             </motion.div>
+            
+            {filteredPhotos.length === 0 && searchQuery && (
+              <div className="py-20 flex flex-col items-center justify-center gap-4 text-white/20">
+                <Search size={48} />
+                <p className="text-xl font-bold">No photos found for "{searchQuery}"</p>
+              </div>
+            )}
           </>
         )}
       </main>
+
+      <AnimatePresence>
+        {isCreateAlbumOpen && (
+          <CreateAlbumModal
+            onClose={() => setIsCreateAlbumOpen(false)}
+            onSave={handleCreateAlbum}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingAlbum && (
+          <CreateAlbumModal
+            album={editingAlbum}
+            onClose={() => setEditingAlbum(null)}
+            onSave={(title, description) => handleUpdateAlbum(editingAlbum.id, title, description)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isAddToAlbumOpen && (
@@ -315,6 +435,7 @@ export default function App() {
         photo={selectedPhoto} 
         onClose={() => setSelectedPhoto(null)} 
         onUpdate={handleUpdatePhoto}
+        onSetBackground={(url) => setBackgroundPhotoUrl(url)}
         albums={albums}
       />
 
@@ -333,13 +454,43 @@ export default function App() {
         <TabItem 
           label="Gallery" 
           icon={<ImageIcon size={20} />} 
-          active={currentTab === 'Gallery'} 
+          active={currentTab === 'Gallery' && !isSearchVisible} 
           onClick={() => {
+            setCurrentTab('Gallery');
+            setSelectedAlbumId(null);
+            setIsSearchVisible(false);
+          }}
+        />
+        <TabItem 
+          label="Search" 
+          icon={<Search size={20} />} 
+          active={isSearchVisible}
+          onClick={() => {
+            setIsSearchVisible(true);
             setCurrentTab('Gallery');
             setSelectedAlbumId(null);
           }}
         />
-        <TabItem label="Search" icon={<Library size={20} />} />
+        <TabItem 
+          label="Generate" 
+          icon={<Sparkles size={20} />} 
+          active={currentTab === 'AI Creator'}
+          onClick={() => {
+            setCurrentTab('AI Creator');
+            setSelectedAlbumId(null);
+            setIsSearchVisible(false);
+          }}
+        />
+        <TabItem 
+          label="Video AI" 
+          icon={<Video size={20} />} 
+          active={currentTab === 'Video AI'}
+          onClick={() => {
+            setCurrentTab('Video AI');
+            setSelectedAlbumId(null);
+            setIsSearchVisible(false);
+          }}
+        />
         <TabItem 
           label="Albums" 
           icon={<Grid size={20} />} 
@@ -347,6 +498,7 @@ export default function App() {
           onClick={() => {
             setCurrentTab('Albums');
             setSelectedAlbumId(null);
+            setIsSearchVisible(false);
           }}
         />
         
