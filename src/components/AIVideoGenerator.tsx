@@ -17,6 +17,7 @@ export default function AIVideoGenerator({ onSave }: AIVideoGeneratorProps) {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -105,12 +106,43 @@ export default function AIVideoGenerator({ onSave }: AIVideoGeneratorProps) {
     }
   };
 
+  const captureThumbnail = (videoUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.src = videoUrl;
+      video.crossOrigin = 'anonymous';
+      video.currentTime = 0.5; // Capture at 0.5 seconds to ensure we have a frame
+      video.onloadeddata = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        } else {
+          resolve('');
+        }
+      };
+      video.onerror = () => resolve('');
+    });
+  };
+
+  useEffect(() => {
+    if (generatedVideo) {
+      captureThumbnail(generatedVideo).then(setThumbnail);
+    } else {
+      setThumbnail(null);
+    }
+  }, [generatedVideo]);
+
   const handleSave = () => {
     if (!generatedVideo) return;
 
     const newMedia: Photo = {
       id: `ai-vid-${Date.now()}`,
       url: generatedVideo,
+      thumbnailUrl: thumbnail || undefined,
       title: prompt.slice(0, 30) + (prompt.length > 30 ? '...' : ''),
       location: 'Veo AI Lab',
       date: new Date().toLocaleDateString(),
@@ -255,21 +287,44 @@ export default function AIVideoGenerator({ onSave }: AIVideoGeneratorProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             className="space-y-8"
           >
-            <div className="relative aspect-video max-w-2xl mx-auto rounded-[32px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] border border-white/10 group bg-black">
-              <video 
-                src={generatedVideo} 
-                controls 
-                autoPlay 
-                loop
-                playsInline
-                className="w-full h-full object-contain"
-              />
-              <div className="absolute top-4 left-4">
-                <div className="px-3 py-1.5 rounded-full glass-dark text-[10px] font-bold text-purple-400 border border-purple-500/30 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
-                  AI RENDERED 720P
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              <div className="relative aspect-video rounded-[32px] overflow-hidden shadow-2xl border border-white/10 group bg-black">
+                <video 
+                  src={generatedVideo} 
+                  controls 
+                  autoPlay 
+                  loop
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-4 left-4">
+                  <div className="px-3 py-1.5 rounded-full glass-dark text-[10px] font-bold text-purple-400 border border-purple-500/30 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
+                    LIVE PREVIEW
+                  </div>
                 </div>
               </div>
+
+              {thumbnail && (
+                <div className="relative aspect-video rounded-[32px] overflow-hidden shadow-2xl border border-white/10 group bg-black">
+                  <img 
+                    src={thumbnail} 
+                    alt="Video Thumbnail"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <div className="px-3 py-1.5 rounded-full glass-dark text-[10px] font-bold text-ios-blue border border-ios-blue/30 flex items-center gap-2">
+                      <Sparkles size={10} />
+                      GENERATED THUMBNAIL
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <p className="text-[10px] text-white/60 font-medium uppercase tracking-[0.2em]">Static Asset</p>
+                    <p className="text-white font-bold truncate">{prompt.slice(0, 40)}...</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row justify-center gap-4">

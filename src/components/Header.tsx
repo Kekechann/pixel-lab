@@ -4,12 +4,13 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, SlidersHorizontal, Plus, X as CloseIcon } from 'lucide-react';
+import { Search, SlidersHorizontal, Plus, X as CloseIcon, Grid, List } from 'lucide-react';
 import { CATEGORIES, Photo } from '../types';
 import { useRef, ChangeEvent, useState } from 'react';
 
 interface HeaderProps {
   title?: string;
+  description?: string;
   selectedCategory: string;
   onCategoryChange: (id: string) => void;
   onUpload: (photo: Photo) => void;
@@ -21,10 +22,13 @@ interface HeaderProps {
   onToggleSelectionMode: () => void;
   selectedCount: number;
   onDeleteSelected: () => void;
+  viewMode: 'standard' | 'compact';
+  onViewModeChange: (mode: 'standard' | 'compact') => void;
 }
 
 export default function Header({ 
   title = 'All Photos',
+  description,
   selectedCategory, 
   onCategoryChange, 
   onUpload, 
@@ -35,7 +39,9 @@ export default function Header({
   isSelectionMode, 
   onToggleSelectionMode,
   selectedCount,
-  onDeleteSelected 
+  onDeleteSelected,
+  viewMode,
+  onViewModeChange
 }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,14 +74,25 @@ export default function Header({
   return (
     <header className="sticky top-0 z-40 w-full glass px-6 pt-12 pb-4">
       <div className="flex items-center justify-between mb-6">
-        <motion.h1 
-          key={title}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="text-4xl font-bold tracking-tight text-white max-w-[60%] truncate"
-        >
-          {title}
-        </motion.h1>
+        <div className="max-w-[60%]">
+          <motion.h1 
+            key={title}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-4xl font-bold tracking-tight text-white truncate"
+          >
+            {title}
+          </motion.h1>
+          {description && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-white/40 text-sm mt-1 truncate"
+            >
+              {description}
+            </motion.p>
+          )}
+        </div>
         <div className="flex gap-4">
           {isSelectionMode && selectedCount > 0 && (
             <button 
@@ -121,6 +138,13 @@ export default function Header({
               </button>
               <button className="p-2 rounded-full glass hover:bg-white/10 transition-colors">
                 <SlidersHorizontal size={20} className="text-white/80" />
+              </button>
+              <button 
+                onClick={() => onViewModeChange(viewMode === 'standard' ? 'compact' : 'standard')}
+                className="p-2 rounded-full glass hover:bg-white/10 transition-colors text-white/80 flex items-center justify-center gap-2"
+                title={viewMode === 'standard' ? 'Compact View' : 'Standard View'}
+              >
+                {viewMode === 'standard' ? <Grid size={20} /> : <List size={20} />}
               </button>
             </>
           )}

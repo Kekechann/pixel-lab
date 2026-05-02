@@ -154,6 +154,7 @@ export default function PhotoDetail({ photo, onClose, onUpdate, onSetBackground,
               {photo.mediaType === 'video' ? (
                 <video
                   src={photo.url}
+                  poster={photo.thumbnailUrl}
                   className="w-full h-full object-contain bg-black"
                   controls
                   autoPlay

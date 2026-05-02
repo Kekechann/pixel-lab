@@ -11,6 +11,7 @@ export interface Photo {
   date: string;
   categoryId: string;
   description: string;
+  thumbnailUrl?: string;
   mediaType?: 'image' | 'video';
   tags?: string[];
   albumIds?: string[];

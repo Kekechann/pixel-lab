@@ -31,6 +31,7 @@ export default function PhotoCard({ photo, onClick, isSelected = false, isSelect
         <>
           <video
             src={photo.url}
+            poster={photo.thumbnailUrl}
             className={`h-full w-full object-cover transition-transform duration-700 ${
               isSelected ? 'scale-105 opacity-80' : 'group-hover:scale-110'
             }`}
@@ -43,9 +44,16 @@ export default function PhotoCard({ photo, onClick, isSelected = false, isSelect
               v.currentTime = 0;
             }}
           />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-white shadow-lg pointer-events-none group-hover:scale-110 transition-transform">
-            <Play size={24} fill="currentColor" />
-          </div>
+          {!photo.thumbnailUrl && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-white shadow-lg pointer-events-none group-hover:scale-110 transition-transform">
+              <Play size={24} fill="currentColor" />
+            </div>
+          )}
+          {photo.thumbnailUrl && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 p-3 rounded-full glass text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <Play size={24} fill="currentColor" />
+            </div>
+          )}
           <div className="absolute top-3 left-3 z-10 px-2 py-0.5 rounded-md bg-black/40 backdrop-blur-sm border border-white/10 text-[8px] font-black text-white/80 uppercase tracking-tighter">
             AI Video
           </div>

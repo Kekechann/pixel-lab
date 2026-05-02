@@ -36,6 +36,7 @@ export default function App() {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isCreateAlbumOpen, setIsCreateAlbumOpen] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
+  const [viewMode, setViewMode] = useState<'standard' | 'compact'>('standard');
 
   const currentAlbum = useMemo(() => 
     albums.find(a => a.id === selectedAlbumId),
@@ -166,6 +167,10 @@ export default function App() {
     setEditingAlbum(null);
   };
 
+  const handleUpdateAlbumCover = (albumId: string, photoId: string) => {
+    setAlbums(prev => prev.map(a => a.id === albumId ? { ...a, coverId: photoId } : a));
+  };
+
   const handleAddToAlbum = (albumId: string) => {
     const ids = Array.from(selectedPhotoIds);
     setPhotos(prev => prev.map(p => {
@@ -224,7 +229,7 @@ export default function App() {
                 alt=""
               />
             </motion.div>
-            <div className="absolute inset-0 bg-black/40" />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -234,7 +239,8 @@ export default function App() {
         animate={{ 
           opacity: backgroundPhotoUrl ? 0.2 : 0.4,
           scale: backgroundPhotoUrl ? 1.1 : 1,
-          rotate: backgroundPhotoUrl ? 2 : 0
+          rotate: backgroundPhotoUrl ? 2 : 0,
+          filter: backgroundPhotoUrl ? 'blur(12px)' : 'blur(0px)'
         }}
         transition={{ duration: 2, ease: "circOut" }}
         className="fixed inset-0 mesh-bg -z-10 pointer-events-none" 
@@ -242,6 +248,7 @@ export default function App() {
 
       <Header 
         title={headerTitle}
+        description={selectedAlbumId ? currentAlbum?.description : undefined}
         selectedCategory={selectedCategory} 
         onCategoryChange={setSelectedCategory} 
         onUpload={handleAddPhoto}
@@ -256,6 +263,8 @@ export default function App() {
         }}
         selectedCount={selectedPhotoIds.size}
         onDeleteSelected={handleDeleteSelected}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
       
       <main className="px-6 py-4 relative">
@@ -271,6 +280,7 @@ export default function App() {
             onCreateAlbum={() => setIsCreateAlbumOpen(true)}
             onDeleteAlbum={handleDeleteAlbum}
             onEditAlbum={setEditingAlbum}
+            onUpdateAlbumCover={handleUpdateAlbumCover}
           />
         ) : (
           <>
@@ -364,7 +374,11 @@ export default function App() {
 
             <motion.div 
               layout
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+              className={`grid gap-4 sm:gap-6 ${
+                viewMode === 'standard' 
+                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' 
+                  : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+              }`}
             >
               <AnimatePresence mode="popLayout">
                 {filteredPhotos.map((photo) => (
