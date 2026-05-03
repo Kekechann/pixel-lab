@@ -21,23 +21,31 @@
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .glass-dark {
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(35px);
-  -webkit-backdrop-filter: blur(35px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .mesh-bg {
   background: radial-gradient(at 0% 0%, #1e1b4b 0%, transparent 50%),
               radial-gradient(at 100% 0%, #312e81 0%, transparent 50%),
               radial-gradient(at 50% 100%, #172554 0%, transparent 50%);
+  background-size: 200% 200%;
+  animation: mesh-drift 20s ease-in-out infinite alternate;
+}
+
+@keyframes mesh-drift {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
 }
 
 .photo-shadow {
@@ -48,7 +56,16 @@
   padding-top: env(safe-area-inset-top, 20px);
 }
 
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
 /* Fluid scrollbar for a cleaner look */
 ::-webkit-scrollbar {
   width: 0px;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }

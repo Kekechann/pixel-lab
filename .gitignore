@@ -1,8 +1,16 @@
-node_modules/
-build/
-dist/
-coverage/
-.DS_Store
+# Logs
+logs
 *.log
-.env*
-!.env.example
+npm-debug.log*
+
+# Dependencies
+node_modules/
+dist/
+
+# Environment variables
+.env
+.env.local
+
+# Editor folders
+.vscode/
+.idea/
