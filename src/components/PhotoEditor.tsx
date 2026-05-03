@@ -9,9 +9,7 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { X, RotateCcw, RotateCw, Check, Sun, Contrast, Droplets, Sparkles, Loader2, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Photo } from '../types';
-import { GoogleGenAI, Type } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { useAI } from './AIVideoGenerator';
 
 interface PhotoEditorProps {
   photo: Photo;
@@ -32,6 +30,8 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isUpscaling, setIsUpscaling] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState(photo.url);
+
+  const { analyzeImage, upscaleImage } = useAI();
 
   const presets = [
     { name: '1:1', value: 1 },
@@ -117,38 +117,7 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
       const base64Data = imageData.split(',')[1];
       const mimeType = imageData.split(';')[0].split(':')[1];
 
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            parts: [
-              {
-                inlineData: {
-                  data: base64Data,
-                  mimeType: mimeType
-                }
-              },
-              {
-                text: "Analyze this image and suggest the best brightness, contrast, and saturation percentages (0-200) to make it look professionally enhanced. Return ONLY a JSON object with keys 'brightness', 'contrast', and 'saturation'."
-              }
-            ]
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              brightness: { type: Type.NUMBER },
-              contrast: { type: Type.NUMBER },
-              saturation: { type: Type.NUMBER }
-            },
-            required: ["brightness", "contrast", "saturation"]
-          }
-        }
-      });
-
-      const suggestions = JSON.parse(result.text);
+      const suggestions = await analyzeImage(base64Data, mimeType);
       setBrightness(suggestions.brightness);
       setContrast(suggestions.contrast);
       setSaturation(suggestions.saturation);
@@ -179,44 +148,11 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
       const base64Data = imageData.split(',')[1];
       const mimeType = imageData.split(';')[0].split(':')[1];
 
-      const result = await ai.models.generateContent({
-        model: "gemini-3.1-flash-image-preview",
-        contents: [
-          {
-            parts: [
-              {
-                inlineData: {
-                  data: base64Data,
-                  mimeType: mimeType
-                }
-              },
-              {
-                text: "Enhance and upscale this image to high resolution (4K). Remove noise, sharpen details, and improve overall clarity while preserving the original content."
-              }
-            ]
-          }
-        ],
-        config: {
-          imageConfig: {
-            imageSize: "4K"
-          }
-        }
-      });
-
-      if (result.candidates?.[0]?.content?.parts) {
-        for (const part of result.candidates[0].content.parts) {
-          if (part.inlineData) {
-            const newBase64Data = part.inlineData.data;
-            const newImageUrl = `data:image/png;base64,${newBase64Data}`;
-            setCurrentImageUrl(newImageUrl);
-            // Reset adjustments after upscaling as the new image is already enhanced
-            setBrightness(100);
-            setContrast(100);
-            setSaturation(100);
-            break;
-          }
-        }
-      }
+      const newImageUrl = await upscaleImage(base64Data, mimeType);
+      setCurrentImageUrl(newImageUrl);
+      setBrightness(100);
+      setContrast(100);
+      setSaturation(100);
     } catch (error) {
       console.error('Upscale failed:', error);
       alert('Failed to upscale image. Please try again.');
@@ -483,4 +419,3 @@ export default function PhotoEditor({ photo, onSave, onCancel }: PhotoEditorProp
     </div>
   );
 }
-
